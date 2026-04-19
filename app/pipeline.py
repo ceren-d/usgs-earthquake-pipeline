@@ -101,20 +101,29 @@ def run_pipeline() -> None:
     configure_logging(LOG_LEVEL)
     run_started_at = datetime.now(UTC)
     conn = None
+    current_stage = "starting"
 
     try:
         logger.info("Starting earthquake pipeline")
 
+        current_stage = "fetching earthquake events"
         events = fetch_earthquake_events()
         logger.info("Fetched %s events from API", len(events))
 
+        current_stage = "opening database connection"
         conn = get_connection(DB_PATH)
+
+        current_stage = "initializing database schema"
         init_db(conn)
 
+        current_stage = "inserting raw events"
         insert_raw_events(conn, events)
         logger.info("Inserted %s raw events into SQLite", len(events))
 
+        current_stage = "building daily aggregates"
         aggregates, skipped_event_count = build_daily_aggregates(events)
+
+        current_stage = "refreshing aggregate table"
         refresh_daily_aggregates(conn, aggregates)
         logger.info("Inserted %s daily aggregate rows into SQLite", len(aggregates))
         logger.info(
@@ -122,7 +131,10 @@ def run_pipeline() -> None:
             skipped_event_count,
         )
 
+        current_stage = "logging aggregate highlights"
         log_aggregate_day_highlights(aggregates)
+
+        current_stage = "running sanity checks"
         run_sanity_checks(events, aggregates)
 
         runtime_seconds = (datetime.now(UTC) - run_started_at).total_seconds()
@@ -130,7 +142,11 @@ def run_pipeline() -> None:
 
     except Exception:
         runtime_seconds = (datetime.now(UTC) - run_started_at).total_seconds()
-        logger.exception("Earthquake pipeline failed after %.2f seconds", runtime_seconds)
+        logger.exception(
+            "Earthquake pipeline failed during '%s' after %.2f seconds",
+            current_stage,
+            runtime_seconds,
+        )
         raise
 
     finally:
