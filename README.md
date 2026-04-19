@@ -51,6 +51,7 @@ Or run individual test files:
 ```bash
 python -m pytest tests/test_transform.py
 python -m pytest tests/test_client.py
+python -m pytest tests/test_db.py
 ```
 
 ## Database output
@@ -94,7 +95,7 @@ The client fetches multiple pages of results using `limit` and `offset` until it
 
 ### Testability
 
-The client supports a configurable page size so pagination behavior can be tested with small mocked responses without changing the production default. The tests use mocked API responses, so they do not depend on live network access or the current state of the USGS API.
+The client supports a configurable page size so pagination behavior can be tested with small mocked responses without changing the production default. The tests cover transformation logic, paginated API behavior, and database operations without depending on live network access or the current state of the USGS API.
 
 ### Logging and sanity checks
 
@@ -108,6 +109,7 @@ The pipeline logs key execution steps including:
 - skipped records during aggregation
 - representative daily aggregate highlights
 - total runtime
+- failure context including the pipeline stage and elapsed runtime
 
 Representative daily aggregate highlights are logged to make the bucketing output visible without dumping the full aggregate table.
 
@@ -140,6 +142,7 @@ usgs-earthquake-pipeline/
     transform.py
   tests/
     test_client.py
+    test_db.py
     test_transform.py
   main.py
   requirements.txt
