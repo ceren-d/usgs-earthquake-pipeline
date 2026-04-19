@@ -95,34 +95,44 @@ def log_aggregate_day_highlights(aggregates: list[dict]) -> None:
 
     logger.info("Aggregate day highlights: %s", "; ".join(parts))
 
+
 def run_pipeline() -> None:
     """Run the earthquake ingestion and aggregation pipeline."""
     configure_logging(LOG_LEVEL)
     run_started_at = datetime.now(UTC)
+    conn = None
 
-    logger.info("Starting earthquake pipeline")
+    try:
+        logger.info("Starting earthquake pipeline")
 
-    events = fetch_earthquake_events()
-    logger.info("Fetched %s events from API", len(events))
+        events = fetch_earthquake_events()
+        logger.info("Fetched %s events from API", len(events))
 
-    conn = get_connection(DB_PATH)
-    init_db(conn)
+        conn = get_connection(DB_PATH)
+        init_db(conn)
 
-    insert_raw_events(conn, events)
-    logger.info("Inserted %s raw events into SQLite", len(events))
+        insert_raw_events(conn, events)
+        logger.info("Inserted %s raw events into SQLite", len(events))
 
-    aggregates, skipped_event_count = build_daily_aggregates(events)
-    refresh_daily_aggregates(conn, aggregates)
-    logger.info("Inserted %s daily aggregate rows into SQLite", len(aggregates))
-    logger.info(
-        "Skipped %s events during aggregation due to missing magnitude or event time",
-        skipped_event_count,
-    )
+        aggregates, skipped_event_count = build_daily_aggregates(events)
+        refresh_daily_aggregates(conn, aggregates)
+        logger.info("Inserted %s daily aggregate rows into SQLite", len(aggregates))
+        logger.info(
+            "Skipped %s events during aggregation due to missing magnitude or event time",
+            skipped_event_count,
+        )
 
-    log_aggregate_day_highlights(aggregates)
-    run_sanity_checks(events, aggregates)
+        log_aggregate_day_highlights(aggregates)
+        run_sanity_checks(events, aggregates)
 
-    conn.close()
+        runtime_seconds = (datetime.now(UTC) - run_started_at).total_seconds()
+        logger.info("Earthquake pipeline completed successfully in %.2f seconds", runtime_seconds)
 
-    runtime_seconds = (datetime.now(UTC) - run_started_at).total_seconds()
-    logger.info("Earthquake pipeline completed successfully in %.2f seconds", runtime_seconds)
+    except Exception:
+        runtime_seconds = (datetime.now(UTC) - run_started_at).total_seconds()
+        logger.exception("Earthquake pipeline failed after %.2f seconds", runtime_seconds)
+        raise
+
+    finally:
+        if conn is not None:
+            conn.close()
