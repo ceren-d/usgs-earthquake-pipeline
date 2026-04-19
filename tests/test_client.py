@@ -1,3 +1,6 @@
+import pytest
+import requests
+
 from app.client import fetch_earthquake_events
 
 
@@ -20,9 +23,7 @@ def test_fetch_earthquake_events_paginates(requests_mock):
                     "type": "earthquake",
                     "status": "reviewed",
                 },
-                "geometry": {
-                    "coordinates": [-122.1, 37.1, 10.0],
-                },
+                "geometry": {"coordinates": [-122.1, 37.1, 10.0]},
             },
             {
                 "id": "event-2",
@@ -36,9 +37,7 @@ def test_fetch_earthquake_events_paginates(requests_mock):
                     "type": "earthquake",
                     "status": "automatic",
                 },
-                "geometry": {
-                    "coordinates": [-123.2, 38.2, 12.0],
-                },
+                "geometry": {"coordinates": [-123.2, 38.2, 12.0]},
             },
         ]
     }
@@ -57,9 +56,7 @@ def test_fetch_earthquake_events_paginates(requests_mock):
                     "type": "earthquake",
                     "status": "reviewed",
                 },
-                "geometry": {
-                    "coordinates": [-124.3, 39.3, 15.0],
-                },
+                "geometry": {"coordinates": [-124.3, 39.3, 15.0]},
             }
         ]
     }
@@ -75,7 +72,6 @@ def test_fetch_earthquake_events_paginates(requests_mock):
     events = fetch_earthquake_events(page_limit=2)
 
     assert len(events) == 3
-
     assert events[0]["event_id"] == "event-1"
     assert events[0]["magnitude"] == 1.5
     assert events[0]["latitude"] == 37.1
@@ -89,3 +85,26 @@ def test_fetch_earthquake_events_paginates(requests_mock):
     assert events[2]["latitude"] == 39.3
     assert events[2]["longitude"] == -124.3
     assert events[2]["depth_km"] == 15.0
+
+
+def test_fetch_earthquake_events_raises_for_http_error(requests_mock):
+    requests_mock.get(
+        "https://earthquake.usgs.gov/fdsnws/event/1/query",
+        status_code=500,
+        json={"error": "internal server error"},
+    )
+
+    with pytest.raises(requests.HTTPError):
+        fetch_earthquake_events(page_limit=2)
+
+
+def test_fetch_earthquake_events_returns_empty_list_when_no_features(requests_mock):
+    requests_mock.get(
+        "https://earthquake.usgs.gov/fdsnws/event/1/query",
+        json={"features": []},
+        status_code=200,
+    )
+
+    events = fetch_earthquake_events(page_limit=2)
+
+    assert events == []
