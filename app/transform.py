@@ -19,9 +19,14 @@ def timestamp_ms_to_utc_date(timestamp_ms: int) -> str:
     return event_datetime.date().isoformat()
 
 
-def build_daily_aggregates(events: list[dict]) -> list[dict]:
-    """Build daily earthquake counts grouped by magnitude bucket."""
+def build_daily_aggregates(events: list[dict]) -> tuple[list[dict], int]:
+    """Build daily earthquake counts grouped by magnitude bucket.
+
+    Returns:
+        tuple[list[dict], int]: aggregate rows and the number of skipped events.
+    """
     counts = defaultdict(int)
+    skipped_event_count = 0
 
     for event in events:
         magnitude = event.get("magnitude")
@@ -29,6 +34,7 @@ def build_daily_aggregates(events: list[dict]) -> list[dict]:
 
         # Aggregation requires both magnitude and event time.
         if magnitude is None or event_time_ms is None:
+            skipped_event_count += 1
             continue
 
         event_date = timestamp_ms_to_utc_date(event_time_ms)
@@ -47,4 +53,4 @@ def build_daily_aggregates(events: list[dict]) -> list[dict]:
             }
         )
 
-    return aggregates
+    return aggregates, skipped_event_count

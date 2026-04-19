@@ -1,4 +1,5 @@
 import logging
+from datetime import UTC, datetime
 
 from app.client import fetch_earthquake_events
 from app.config import DB_PATH, LOG_LEVEL
@@ -43,6 +44,8 @@ def run_sanity_checks(events: list[dict], aggregates: list[dict]) -> None:
 def run_pipeline() -> None:
     """Run the earthquake ingestion and aggregation pipeline."""
     configure_logging(LOG_LEVEL)
+    run_started_at = datetime.now(UTC)
+
     logger.info("Starting earthquake pipeline")
 
     events = fetch_earthquake_events()
@@ -54,11 +57,17 @@ def run_pipeline() -> None:
     insert_raw_events(conn, events)
     logger.info("Inserted %s raw events into SQLite", len(events))
 
-    aggregates = build_daily_aggregates(events)
+    aggregates, skipped_event_count = build_daily_aggregates(events)
     refresh_daily_aggregates(conn, aggregates)
     logger.info("Inserted %s daily aggregate rows into SQLite", len(aggregates))
+    logger.info(
+        "Skipped %s events during aggregation due to missing magnitude or event time",
+        skipped_event_count,
+    )
 
     run_sanity_checks(events, aggregates)
 
     conn.close()
-    logger.info("Earthquake pipeline completed successfully")
+
+    runtime_seconds = (datetime.now(UTC) - run_started_at).total_seconds()
+    logger.info("Earthquake pipeline completed successfully in %.2f seconds", runtime_seconds)

@@ -33,7 +33,7 @@ def test_build_daily_aggregates():
         {"magnitude": 1.1, "event_time_ms": None},
     ]
 
-    result = build_daily_aggregates(events)
+    result, skipped_event_count = build_daily_aggregates(events)
 
     assert result == [
         {"event_date_utc": "2026-04-18", "magnitude_bucket": "0-2", "event_count": 1},
@@ -42,3 +42,4 @@ def test_build_daily_aggregates():
         {"event_date_utc": "2026-04-18", "magnitude_bucket": "6+", "event_count": 1},
         {"event_date_utc": "2026-04-19", "magnitude_bucket": "2-4", "event_count": 1},
     ]
+    assert skipped_event_count == 2
